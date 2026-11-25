@@ -1,4 +1,5 @@
 from typing import Optional, Union
+from unittest import mock
 
 from osprey.engine.udf.arguments import ArgumentsBase, ConstExpr
 
@@ -32,3 +33,21 @@ def test_arguments_can_be_none() -> None:
     assert Arguments.kwarg_can_be_none('obj')
     assert not Arguments.kwarg_can_be_none('string')
     assert not Arguments.kwarg_can_be_none('integer')
+
+
+def test_arguments_items_cached_per_class() -> None:
+    class FirstArguments(ArgumentsBase):
+        foo: str
+
+    class SecondArguments(ArgumentsBase):
+        bar: int
+
+    FirstArguments.items()
+    SecondArguments.items()
+
+    with mock.patch('osprey.engine.udf.arguments.get_type_hints', side_effect=AssertionError('cache miss')):
+        for _ in range(3):
+            assert list(FirstArguments.items()) == ['foo']
+            assert list(SecondArguments.items()) == ['bar']
+            assert not FirstArguments.is_extra_arguments_allowed()
+            assert not SecondArguments.is_extra_arguments_allowed()
