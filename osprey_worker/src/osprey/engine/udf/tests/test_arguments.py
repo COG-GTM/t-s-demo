@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 from unittest import mock
 
 from osprey.engine.udf.arguments import ArgumentsBase, ConstExpr
@@ -35,19 +35,39 @@ def test_arguments_can_be_none() -> None:
     assert not Arguments.kwarg_can_be_none('integer')
 
 
-def test_arguments_items_cached_per_class() -> None:
+def test_arguments_caches_hold_every_class() -> None:
     class FirstArguments(ArgumentsBase):
         foo: str
+        extra_arguments: Dict[str, int]
 
     class SecondArguments(ArgumentsBase):
         bar: int
+        extra_arguments: Dict[str, str]
 
-    FirstArguments.items()
-    SecondArguments.items()
+    class ThirdArguments(ArgumentsBase):
+        baz: bool
+
+    cached_methods = [
+        ArgumentsBase.items,
+        ArgumentsBase.is_extra_arguments_allowed,
+        ArgumentsBase.get_extra_arguments_values_type,
+    ]
+
+    def warm() -> None:
+        assert list(FirstArguments.items()) == ['foo', 'extra_arguments']
+        assert list(SecondArguments.items()) == ['bar', 'extra_arguments']
+        assert list(ThirdArguments.items()) == ['baz']
+        assert FirstArguments.is_extra_arguments_allowed()
+        assert SecondArguments.is_extra_arguments_allowed()
+        assert not ThirdArguments.is_extra_arguments_allowed()
+        assert FirstArguments.get_extra_arguments_values_type() is int
+        assert SecondArguments.get_extra_arguments_values_type() is str
+
+    warm()
+    misses_before = [method.__func__.cache_info().misses for method in cached_methods]  # type: ignore[attr-defined]
 
     with mock.patch('osprey.engine.udf.arguments.get_type_hints', side_effect=AssertionError('cache miss')):
         for _ in range(3):
-            assert list(FirstArguments.items()) == ['foo']
-            assert list(SecondArguments.items()) == ['bar']
-            assert not FirstArguments.is_extra_arguments_allowed()
-            assert not SecondArguments.is_extra_arguments_allowed()
+            warm()
+
+    assert [method.__func__.cache_info().misses for method in cached_methods] == misses_before  # type: ignore[attr-defined]
