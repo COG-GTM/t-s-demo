@@ -23,4 +23,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `InExperiment` UDF which checks if an entity is in an experiment ([#203](https://github.com/roostorg/osprey/pull/203) by [@bealsbe](https://github.com/bealsbe))
 
 ### 🐛 Bug fixes
+- Cache `ArgumentsBase.items()` per argument class instead of only the last class, so rule execution stops recomputing UDF argument type hints on every call ([#4](https://github.com/COG-GTM/t-s-demo/pull/4))
 - Default to selecting all for event stream ([#194](https://github.com/roostorg/osprey/pull/194) by [@chimosky](https://github.com/chimosky))
