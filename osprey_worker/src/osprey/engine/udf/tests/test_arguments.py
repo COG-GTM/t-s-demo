@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from unittest import mock
 
 from osprey.engine.udf.arguments import ArgumentsBase, ConstExpr
@@ -47,11 +47,13 @@ def test_arguments_caches_hold_every_class() -> None:
     class ThirdArguments(ArgumentsBase):
         baz: bool
 
-    cached_methods = [
-        ArgumentsBase.items,
-        ArgumentsBase.is_extra_arguments_allowed,
-        ArgumentsBase.get_extra_arguments_values_type,
+    # classmethod hides the lru_cache wrapper; __func__ is the wrapper with cache_info()
+    caches: List[Any] = [
+        getattr(ArgumentsBase.items, '__func__'),
+        getattr(ArgumentsBase.is_extra_arguments_allowed, '__func__'),
+        getattr(ArgumentsBase.get_extra_arguments_values_type, '__func__'),
     ]
+    assert all(cache.cache_parameters()['maxsize'] is None for cache in caches)
 
     def warm() -> None:
         assert list(FirstArguments.items()) == ['foo', 'extra_arguments']
@@ -64,10 +66,10 @@ def test_arguments_caches_hold_every_class() -> None:
         assert SecondArguments.get_extra_arguments_values_type() is str
 
     warm()
-    misses_before = [method.__func__.cache_info().misses for method in cached_methods]  # type: ignore[attr-defined]
+    misses_before = [cache.cache_info().misses for cache in caches]
 
     with mock.patch('osprey.engine.udf.arguments.get_type_hints', side_effect=AssertionError('cache miss')):
         for _ in range(3):
             warm()
 
-    assert [method.__func__.cache_info().misses for method in cached_methods] == misses_before  # type: ignore[attr-defined]
+    assert [cache.cache_info().misses for cache in caches] == misses_before
